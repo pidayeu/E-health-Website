@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="id">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>E-Health Tracker - Laporan Kesehatan</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.4.0/jspdf.umd.min.js"></script>
+    <style>
+        .draggable {
+            cursor: move;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        th, td {
+            padding: 12px;
+            text-align: left;
+            border: 1px solid #ccc;
+        }
+        #toast {
+            display: none;
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background-color: #38a169;
+            color: white;
+            padding: 16px;
+            border-radius: 8px;
+            z-index: 1000;
+        }
+    </style>
+</head>
+
+<body class="bg-gray-100 font-sans">
+    <div class="flex h-screen">
+        <div class="w-64 bg-green-50 p-4 shadow-lg">
+            <div class="flex items-center mb-6">
+                <div class="w-10 h-10 bg-green-300 rounded-full flex items-center justify-center">
+                    <i class="fas fa-user text-white"></i>
+                </div>
+                <span class="ml-4 text-gray-800 font-semibold">286_Marfrida</span>
+            </div>
+            <nav>
+                <ul>
+                    <li class="mb-4"><a href="index.html" class="text-gray-700 hover:text-green-500 flex items-center"><i class="fas fa-home mr-2"></i> Beranda</a></li>
+                    <li class="mb-4"><a href="Pemantauan_Data_Kesehatan.html" class="text-gray-700 hover:text-green-500 flex items-center"><i class="fas fa-tasks mr-2"></i> Data Kesehatan</a></li>
+                </ul>
+            </nav>
+        </div>
+
+        <div class="flex-1 p-6 overflow-y-auto">
+            <h1 class="text-2xl font-semibold text-gray-800 mb-6">Laporan Kesehatan</h1>
+
+            <div class="bg-white p-6 rounded-lg shadow-lg mb-6">
+                <h2 class="text-xl font-semibold mb-4">Data Kesehatan Baru</h2>
+                <form id="health-data-form">
+                    <input class="w-full mb-4 px-4 py-2 border rounded-lg" type="text" id="name" placeholder="Nama Pengukuran" required>
+                    <input class="w-full mb-4 px-4 py-2 border rounded-lg" type="number" id="value" placeholder="Nilai" required>
+                    <select class="w-full mb-4 px-4 py-2 border rounded-lg" id="unit">
+                        <option>mmHg</option>
+                        <option>kg</option>
+                    </select>
+                    <input class="w-full mb-4 px-4 py-2 border rounded-lg" type="date" id="date" required>
+                    
+                    <div class="flex mb-4">
+                        <input class="w-full mr-2 px-4 py-2 border rounded-lg" type="number" id="fluid-intake" placeholder="Cairan (ml)" required>
+                        <input class="w-full ml-2 px-4 py-2 border rounded-lg" type="number" id="heart-rate" placeholder="Detak Jantung (bpm)" required>
+                    </div>
+            
+                    <input class="w-full mb-4 px-4 py-2 border rounded-lg" type="text" id="reminders" placeholder="Catatan">
+                    
+                    <div class="flex items-center mb-4">
+                        <label class="block text-gray-700 mr-2">Upload Rekam Medis:</label>
+                        <input type="file" id="medical-record" class="border p-2 rounded-lg w-full">
+                    </div>
+                    
+                    <button type="submit" class="bg-green-500 text-white px-4 py-2 rounded">Simpan</button>
+                </form>
+            </div>
+            
+            <!-- Kumpulan Data Kesehatan -->
+            <div class="bg-white p-6 rounded-lg shadow-lg mb-6">
+                <h2 class="text-xl font-semibold mb-4">Kumpulan Data Kesehatan</h2>
+                <div id="data-container">
+                    <!-- Contoh data sebagai kartu yang bisa di-drag dan dihapus -->
+                    <div class="draggable" draggable="true">
+                        <span>Pengukuran 1: 120 mmHg, Detak Jantung: 80 bpm, Cairan: 2000 ml, Tanggal: 2024-10-30</span>
+                        <button onclick="removeCard(this)" class="text-red-500">Hapus</button>
+                    </div>
+                    <div class="draggable" draggable="true">
+                        <span>Pengukuran 2: 70 kg, Detak Jantung: 75 bpm, Cairan: 1500 ml, Tanggal: 2024-10-29</span>
+                        <button onclick="removeCard(this)" class="text-red-500">Hapus</button>
+                    </div>
+                </div>
+            </div>
+
+            <div id="health-summary" class="bg-white p-6 rounded-lg shadow-lg mb-6">
+                <h2 class="font-semibold text-lg mb-4">Ringkasan Kesehatan</h2>
+                <div class="bg-green-100 p-4 rounded-lg">
+                    <h3 id="health-status" class="font-semibold">Kesehatan Baik</h3>
+                    <p id="health-recommendation">Silakan lakukan pemantauan kesehatan secara rutin.</p>
+                </div>
+            </div>
+
+            <div class="bg-white p-6 rounded-lg shadow-lg mb-6">
+                <h2 class="text-xl font-semibold mb-4">Grafik Kesehatan</h2>
+                <canvas id="healthChart" class="w-full h-64"></canvas>
+            </div>
+
+            <button id="generate-pdf" class="bg-blue-500 text-white px-4 py-2 rounded mb-6">Unduh PDF</button>
+
+            <div id="toast">Data kesehatan berhasil disimpan!</div>
+        </div>
+    </div>
+
+    <script>
+        const dataContainer = document.getElementById('data-container');
+        let draggedCard = null;
+
+        // Fungsi untuk menghapus kartu
+        function removeCard(button) {
+            button.parentElement.remove();
+        }
+
+        // Event Listener untuk 'dragstart' - Saat elemen mulai di-drag
+        dataContainer.addEventListener('dragstart', (e) => {
+            if (e.target.classList.contains('draggable')) {
+                draggedCard = e.target;
+                e.target.style.opacity = 0.5;
+            }
+        });
+
+        // Event Listener untuk 'dragover' - Saat elemen di-drag di atas elemen lain
+        dataContainer.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            const draggingOverCard = e.target.closest('.draggable');
+            if (draggingOverCard && draggingOverCard !== draggedCard) {
+                dataContainer.insertBefore(draggedCard, draggingOverCard.nextSibling || draggingOverCard);
+            }
+        });
+
+        // Event Listener untuk 'drop' - Saat elemen di-drop ke tempat baru
+        dataContainer.addEventListener('drop', () => {
+            if (draggedCard) {
+                draggedCard.style.opacity = 1;
+                draggedCard = null;
+            }
+        });
+
+        // Event Listener untuk 'dragend' - Ketika drag selesai
+        dataContainer.addEventListener('dragend', (e) => {
+            if (e.target.classList.contains('draggable')) {
+                e.target.style.opacity = 1;
+            }
+        });
+
+        // Toast Notification
+        function showToast() {
+            const toast = document.getElementById('toast');
+            toast.style.display = 'block';
+            setTimeout(() => toast.style.display = 'none', 3000);
+        }
+
+        // Form Submission
+        document.getElementById('health-data-form').addEventListener('submit', function(event) {
+            event.preventDefault();
+
+            const name = document.getElementById('name').value;
+            const fluidIntake = document.getElementById('fluid-intake').value;
+            const heartRate = document.getElementById('heart-rate').value;
+
+            // Update Health Summary based on Heart Rate
+            const healthStatus = heartRate < 100 ? 'Kesehatan Baik' : 'Kesehatan Buruk';
+            const recommendation = heartRate < 100 ? 'Silakan lakukan pemantauan kesehatan secara rutin.' : 'Sebaiknya segera konsultasi ke dokter.';
+            document.getElementById('health-status').innerText = healthStatus;
+            document.getElementById('health-recommendation').innerText = recommendation;
+
+            // Show toast notification
+            showToast();
+        });
+
+        // PDF Generation
+        document.getElementById('generate-pdf').addEventListener('click', () => {
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF();
+            doc.text("Laporan Kesehatan", 20, 20);
+            doc.save("laporan_kesehatan.pdf");
+        });
+
+        // Chart.js implementation for health data visualization
+        const ctx = document.getElementById('healthChart').getContext('2d');
+        const healthChart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: ['Hari 1', 'Hari 2', 'Hari 3', 'Hari 4', 'Hari 5'],
+                datasets: [{
+                    label: 'Kesehatan',
+                    data: [65, 59, 80, 81, 56],
+                    borderColor: 'rgba(75, 192, 192, 1)',
+                    borderWidth: 1,
+                    fill: false,
+                }]
+            },
+            options: {
+                scales: {
+                    y: {
+                        beginAtZero: true
+                    }
+                }
+            }
+        });
+    </script>
+</body>
+
+</html>
